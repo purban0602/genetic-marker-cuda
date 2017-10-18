@@ -10,11 +10,13 @@ achieve at some point-whatever you guys have agreed to focus on for your project
 	Write out FinalMapFile.txt
 2.  In Final Report, replace SNP Name column for each row with corresponding KSUid from MapFile
 	Create new column for genotypeAB
-	Recode genotypes as follows:  	if Allele1AB=A and Allele2AB=B, genotypeAB=3
-					if Allele1AB=A and Allele2AB=A, genotypeAB=1
-					if Allele1AB=B and Allele2AB=B, genotypeAB=2
-					if Allele1AB=B and Allele2AB=A, genotypeAB=3
-					If Allele1AB and/or Allele2AB are missing, genotypeAB=99 (both should be missing if one is missing due to way genotypes are called)
+	Recode genotypes as follows:
+	
+	if Allele1AB=A and Allele2AB=B, genotypeAB=3
+	if Allele1AB=A and Allele2AB=A, genotypeAB=1
+	if Allele1AB=B and Allele2AB=B, genotypeAB=2
+	if Allele1AB=B and Allele2AB=A, genotypeAB=3
+	If Allele1AB and/or Allele2AB are missing, genotypeAB=99 (both should be missing if one is missing due to way genotypes are called)
 	Write out this file FinalReport_Numeric.txt
 3.  On Final Report, delete header rows (9 rows, 10th is headers for the actual data)
 	Delete columns SNP Name (if replaced by KSUid, leave in file), Allele1 Forward, Allele2 Top, Allele1 Top, Allele2 Top
