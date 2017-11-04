@@ -40,6 +40,9 @@ int main(int argc, char **argv) {
 	err = MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
 
 	if (myID == 0) {
+
+		tstart = myclock();
+		tstart = myclock();
 		//Allocate memory for each line in file
 		line = (char **) malloc(maxlines * sizeof(char*));
 	
@@ -67,7 +70,7 @@ int main(int argc, char **argv) {
 		fflush(stdout);	
 		fd = fopen("/home/phillip/Documents/genetic-marker-cuda/sample-files/test-files/rawdata.txt", "w");
 		for(k = 0; k < maxlines && k < nlines; k++) {
-			fprintf(fd, "%s\n", line[0]);
+			fprintf(fd, "%s\n", line[k]);
 		}
 		fclose(fd);
 		printf("Wrote rawdata.txt.\n");
