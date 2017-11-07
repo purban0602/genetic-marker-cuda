@@ -10,20 +10,36 @@ double myclock();
 void main(int argc, char **argv) {
 	
 	int numAnimals, numSNPs = 0;
-	int i, j, k;
+	int i, j, k, err;
 
 	FILE *fd;
 	
 	int maxlines = atoi(argv[1]);
+	int nlines;
+	
+	int *ksuID;
+	int *sampleID;
+	int *genotypeAB;
 
 	char **line;
 
 	struct rusage r_usage;
 
-	line = (char **) malloc(maxlines * sizeof(char*));
+	//allocate memory for each line
+	ksuID = (int*) malloc(maxlines * sizeof(int*));
+	sampleID = (int*) malloc(maxlines * sizeof(int*));
+	genotypeAB = (int*) malloc(maxlines * sizeof(int*));
 
-	for (i = 0; i < maxlines; i++) {
-		line[i] = malloc(
+	//open raw data file (KSUid, SampleID, genotypeAB)
+	fd = fopen("./rawdata.txt","r");
+	
+	//Only need the unique animals and SNPs
+	if (fd != NULL) {
+		nlines = -1;
+		do {
+			err = fscanf(fd, "%d\t%d\t%d\n",ksuID[nlines++], sampleID[nlines], genotypeAB[nlines]);		
+		} while(err != EOF && nlines < maxlines);
+		fclose(fd);
 	}
 	
 
