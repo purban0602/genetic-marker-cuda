@@ -3,6 +3,8 @@
 #include <string.h>
 #include <time.h>
 #include <sys/resource.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 double myclock();
 
@@ -16,16 +18,15 @@ void main(int argc, char **argv) {
 	
 	int maxlines = atoi(argv[1]);
 	int nlines;
-	
+	int nColumns;
+	int nRows;
+
 	int *ksuID;
 	int *sampleID;
 	int *genotypeAB;
 
 	char **line;
 	char tempLine[50];
-	int tempKSU;
-	int tempSample;
-	int tempGeno;
 
 	struct rusage r_usage;
 	printf("Allocating memory...\n");
@@ -85,12 +86,55 @@ void main(int argc, char **argv) {
 		} while(err != EOF && nlines < maxlines);
 		fclose(fd);
 	}
-	printf("File read successfully.\nWriting testout.txt...\n");
+	printf("File read successfully.\nWriting matrix...\n");
 	fflush(stdout);
-		
-	fd = fopen("./testout.txt", "a");
+	/* output matrix: ksu ids in columns, sample ids in rows, genotypeAB everywhere else
+	 * matrix looks like this...
+	 * 	0	1	2	3	...
+	 * 	737	2	1	2	...
+	 *	926	2	1	3	...
+	 *	948	3	1	1	...
+	 *	...	...	...	...
+	 */	
+
+	fd = fopen("./testmatrix.txt", "w");
+
+	//create first row
+	fprintf(fd, "0\t");
+	fprintf(fd, "%d\t",ksuID[0]);
+	nColumns = 1;
+	
+	for (i = 1; i < nlines-1; i++) {
+		if (ksuID[i] != ksuID[i-1]) {
+			fprintf(fd, "%d\t",ksuID[i]);
+			nColumns++;
+		}
+	}
+
+	//avoids an extra \t at the end of the row
+	if (ksuID[nlines-1] != ksuID[nlines-2]) {
+	       fprintf(fd, "%d",ksuID[i]);  
+	       nColumns++;
+	}
+
+	fprintf(fd, "\n");	
+	printf("nColumns = %d\n", nColumns);
+	
+	if(nlines%nColumns) nRows = (nlines / nColumns) + 1;
+	else nRows = nlines/nColumns;
+	printf("nRows = %d\n", nRows);
+	printf("nlines = %d\n", nlines);
+
+	//create all other rows
 	for (i = 0; i < nlines; i++) {
-		fprintf(fd, 
+		//write first column (sampleID)
+		fprintf(fd, "%d\t", sampleID[i]);
+		for (j = 0; j < nColumns-1; j++) {
+			fprintf(fd, "%d\t", genotypeAB[j + (i*nColumns)]);
+		}
+		fprintf(fd, "%d\n", genotypeAB[nColumns -1 + (i*nColumns)]); 
+		//write all other columns
+		
 	}
 	
 }
