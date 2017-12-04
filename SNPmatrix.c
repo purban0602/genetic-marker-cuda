@@ -20,6 +20,7 @@ void main(int argc, char **argv) {
 	int nlines;
 	int nColumns;
 	int nRows;
+	int matrixN;
 
 	int *ksuID;
 	int *sampleID;
@@ -126,14 +127,17 @@ void main(int argc, char **argv) {
 	printf("nlines = %d\n", nlines);
 
 	//create all other rows
-	for (i = 0; i < nlines; i++) {
+	matrixN = 0;
+	for (i = 0; i < nRows; i++) {
 		//write first column (sampleID)
 		fprintf(fd, "%d\t", sampleID[i]);
-		for (j = 0; j < nColumns-1; j++) {
-			fprintf(fd, "%d\t", genotypeAB[j + (i*nColumns)]);
-		}
-		fprintf(fd, "%d\n", genotypeAB[nColumns -1 + (i*nColumns)]); 
+
 		//write all other columns
+		for (j = 0; j < nColumns-1; j++) {
+			fprintf(fd, "%d\t", genotypeAB[i + (j*nRows)]);
+			matrixN++;
+		}
+		fprintf(fd, "%d\n", genotypeAB[i + ((nColumns - 1)*nRows)]); 
 		
 	}
 	
