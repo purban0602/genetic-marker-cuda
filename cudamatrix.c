@@ -18,7 +18,17 @@ int err;
  *	...	...	...	...
  */	
 
-int* fillMatrix(int *matrix, int lines, int *ksu, int *sample, int *AB, int rows, int columns) {
+void initMatrix(int **matrix, int rows, int columns) {
+	int i;
+	int j;
+
+	for(i = 0; i < rows; i++)
+		for(j = 0; j < columns; j++)
+			matrix[i][j] = 99;
+
+}
+
+void fillMatrix(int **matrix, int lines, int *ksu, int *sample, int *AB, int rows, int columns) {
 	
 	//each index has a ksuID, sampleID, and genotypeAB
 	//nlines is the amount of data
@@ -27,33 +37,37 @@ int* fillMatrix(int *matrix, int lines, int *ksu, int *sample, int *AB, int rows
 	//then, check if sample id exists already,
 	//finally, put AB in the correct column
 	int i, j, k;
-
-	//create row one and column one
-
+	
+	j = 1;
+	//fills first row, assumes already sorted
 	for(i = 1; i < lines; i++) {
-		if(ksu[i] != ksu[i-1]) {
-	//		matrix[] = ksu[i];
+		printf("trying i = %d, j = %d\n", i, j);
+		if(ksu[i] != matrix[0][j-1]) {
+			matrix[0][j] = ksu[i];
+			printf("Column %d = %d\n", j, matrix[0][j]);
+			j++;
 		}
 	}
+
+	printf("First row and first column are initialized.\n");
+	/*
 	//for each element...
 	for(i = 0; i < lines; i++) {
 		//check each column
-		for(j = 1; j < columns; j++) {
-			if(ksu[i] == matrix[j + (rows * (j-1))]) {
+		for(j = 0; j < columns; j++) {
+			if(ksu[i] == matrix[0][j]) {
 				//check each row
 				for (k = 1; k < rows; k++) {
-				//	if(sample[i] == matrix
+					if(sample[i] == matrix[k][0]) {
+				//		matrix[k][j] = AB[i]
+					}
 				}
-					
-			}
-			else {
-
 			}
 		}
-	}
-	return matrix;
+	}*/	
 }
 
+//currently not using!
 int* createMatrix(int lines, int *ksu, int *sample, int *AB, int *pr, int *pc) {
 
 	//initialize matrix
@@ -67,8 +81,10 @@ int* createMatrix(int lines, int *ksu, int *sample, int *AB, int *pr, int *pc) {
 			nColumns++;
 		}
 	}
-	if(lines%(nColumns-1)) nRows = lines/(nColumns-1) + 2;
-	else nRows = lines/(nColumns-1) + 1;
+
+	nRows = (lines/(nColumns-1) + 1);
+	//if there are empty elements
+	if(lines%(nColumns-1) != 0) nRows++;
 
 	matrix = (int*) malloc(nRows * nColumns * sizeof(int));	
 	
@@ -165,9 +181,14 @@ void main(int argc, char **argv) {
 
 	printf("nRows = %d\nnColumns = %d\n", *prow, *pcolumn);
 	
-	//matrixAB = fillMatrix(matrixAB, nlines, ksuID, sampleID, genotypeAB, prow, pcolumn);
+	initMatrix(matrixAB, nRows, nColumns);
+
 	matrixAB[0][0] = 0;
 	printf("matrixAB[0][0] = %d\n", matrixAB[0][0]);
+	printf("matrixAB[1][1] = %d\n", matrixAB[1][1]);
+	
+	fillMatrix(matrixAB, nlines, ksuID, sampleID, genotypeAB, nRows, nColumns);
+	
 	/* output matrix: ksu ids in columns, sample ids in rows, genotypeAB everywhere else
 	 * matrix looks like this...
 	 * 	0	1	2	3	...
