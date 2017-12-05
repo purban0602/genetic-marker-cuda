@@ -7,15 +7,49 @@
 #include <sys/types.h>
 
 double myclock();
+int err;
 
-void createMatrix() {
+/* output matrix: ksu ids in columns, sample ids in rows, genotypeAB everywhere else
+ * matrix looks like this...
+ * 	0	1	2	3	...
+ * 	737	2	1	2	...
+ *	926	2	1	3	...
+ *	948	3	1	1	...
+ *	...	...	...	...
+ */	
 
+
+
+int** createMatrix(int lines, int **matrix, int *ksu, int *sample, int *AB) {
+
+	//initialize matrix
+	int i, j;
+	int nRows;
+	int nColumns = 2;
 	
+	for (i = 1; i < lines; i++) {
+		if(ksu[i] != ksu[i-1]) {
+			nColumns++;
+		}
+	}
+	if(lines%nColumns) nRows = lines/nColumns + 2;
+	else nRows = lines/nColumns + 1;
 
+	printf("nRows = %d\nnColumns = %d\n", nRows, nColumns);
+	
+	//malloc matrix
+	matrix = (int**) malloc(nRows * sizeof(int*));
+	for(i = 0; i < nRows; i++) matrix[i] = malloc(nColumns * sizeof(int));
+	
+	printf("Size of matrix: %zu\n", sizeof(matrix));	
+	
+	return matrix;
 }
 
 //reads input file, returns the number of lines in file
 int readData(FILE *f, int lines, int max, int *ksu, int *sample, int *AB) {
+
+	int i, j;
 
 	//Only need the unique animals and SNPs
 	f = fopen("./rawdata.txt", "r");
@@ -32,15 +66,14 @@ int readData(FILE *f, int lines, int max, int *ksu, int *sample, int *AB) {
 		} while(err != EOF && lines < max);
 		fclose(f);
 	}
-	printf("File read successfully.\nWriting matrix...\n");
-	fflush(stdout);
 	return lines;
 }
+
 
 void main(int argc, char **argv) {
 	
 	int numAnimals, numSNPs = 0;
-	int i, j, k, err;
+	int i, j;
 
 	FILE *fd;
 	
@@ -53,6 +86,7 @@ void main(int argc, char **argv) {
 	int *ksuID;
 	int *sampleID;
 	int *genotypeAB;
+	int **matrixAB;
 
 	char **line;
 	char tempLine[50];
@@ -67,61 +101,15 @@ void main(int argc, char **argv) {
 	genotypeAB = (int*) malloc(maxlines * sizeof(int*));
 
 	//assume input file is already 3 columns needed for data matrix
-	/*
-
-	//Create "rawdata" file from "FinalReport" file.
-	//open raw data file (KSUid, SampleID, genotypeAB)
-	printf("Opening FinalReport_Truncated.txt...\n");
-	fflush(stdout);
-
-	fd = fopen("./FinalReport_Truncated.txt","r");
 	
-	printf("Opened FinalReport_Truncated.txt.\nRemoving header...\n");
-	fflush(stdout);
-	
-	if (fd != NULL) {
-		while (strcmp("Y",tempLine) != 0) {
-			err = fscanf(fd, "%s", tempLine);	
-			printf("Current string is %s.\n", tempLine);
+	//try to read data file
+	nlines = readData(fd, nlines, maxlines, ksuID, sampleID, genotypeAB);
 
-		}
-		printf("Header removed.\nConverting data...\n");
+	printf("File read successfully.\nnlines = %d\nWriting matrix...\n", nlines);
 
-		nlines = -1;
-		do {
-			err = fscanf(fd, "%s\t%d\t%c\t%c\t%c\t%c\t%c\t%c\t%f\t%f\t%f\n", tempLine);
-			printf("Current string is %s.\n", tempLine);
-			nlines++;
-		} while(err != EOF && nlines < maxlines);
-		fclose(fd);
-	}
-	else {
-		printf("Error: File Not Found.\n");
-	}
-	*/
-	
-	nlines = readData(fd, nlines, maxlines, ksuID[0], sampleID[0], genotypeAB[0]);
-	/*
-	//Only need the unique animals and SNPs
-	fd = fopen("./rawdata.txt", "r");
-	printf("Opened rawdata.txt.\n");	
-	if (fd != NULL) {
-		nlines = 0;
-		do {
-			err = fscanf(fd, "%d", &ksuID[nlines]);		
-			err = fscanf(fd, "%d", &sampleID[nlines]);		
-			err = fscanf(fd, "%d", &genotypeAB[nlines]);
+	//initialize and create matrix...
+	matrixAB = createMatrix(nlines, matrixAB, ksuID, sampleID, genotypeAB);
 
-			printf("%d %d %d\n", ksuID[nlines], sampleID[nlines], genotypeAB[nlines]);
-			nlines++;
-		} while(err != EOF && nlines < maxlines);
-		fclose(fd);
-	}
-
-	*/
-
-	printf("File read successfully.\nWriting matrix...\n");
-	fflush(stdout);
 	/* output matrix: ksu ids in columns, sample ids in rows, genotypeAB everywhere else
 	 * matrix looks like this...
 	 * 	0	1	2	3	...
@@ -130,7 +118,9 @@ void main(int argc, char **argv) {
 	 *	948	3	1	1	...
 	 *	...	...	...	...
 	 */	
-
+	
+	
+	/*
 	fd = fopen("./testmatrix.txt", "w");
 
 	//create first row
@@ -173,5 +163,6 @@ void main(int argc, char **argv) {
 		fprintf(fd, "%d\n", genotypeAB[i + ((nColumns - 1)*nRows)]); 
 		
 	}
+	*/
 	
 }
