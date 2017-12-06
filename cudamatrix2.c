@@ -8,12 +8,18 @@
 
 double myclock();
 
+__global__ 
 void createMatrix(int** matrix, int rows, int columns, int *ksuCompact, int *sampleCompact) {
 	int i, j;
 	//fprintf(fd, "0\t");
 	
-	matrix = (int**) malloc((rows+1) * sizeof(int*));
-	for(i = 0; i < rows; i++) matrix[i] = (int*) malloc((columns+1) * sizeof(int));
+	//matrix = (int**) malloc((rows+1) * sizeof(int*));
+	cudaMallocManaged(&matrix, (rows + 1) * sizeof(int*));
+	
+	
+	for(i = 0; i < rows; i++) 
+		//matrix[i] = (int*) malloc((columns+1) * sizeof(int));
+		cudaMallocManaged(&matrix[i], (columns+1) * sizeof(int*));
 	
 	matrix[0][0] = 0;
 	printf("matrix[0][0] = %d\n", matrix[0][0]);
@@ -106,13 +112,21 @@ void main(int argc, char **argv) {
 	printf("Allocating memory...\n");
 	fflush(stdout);
 	//allocate memory for each line
-	
+	/*	
 	ksuID = (int*) malloc(maxlines * sizeof(int*));
 	sampleID = (int*) malloc(maxlines * sizeof(int*));
 	genotypeAB = (int*) malloc(maxlines * sizeof(int*));
 	
 	ksuIDCompact = (int*) malloc(maxlines * sizeof(int*));
 	sampleIDCompact = (int*) malloc(maxlines * sizeof(int*));
+	*/
+
+	cudaMallocManaged(&ksuID, maxlines * sizeof(int*));
+	cudaMallocManaged(&sampleID, maxlines * sizeof(int*));
+	cudaMallocManaged(&genotypeAB, maxlines * sizeof(int*));
+
+	cudaMallocManaged(&ksuIDCompact, maxlines * sizeof(int*));
+	cudaMallocManaged(&sampleIDCompact, maxlines * sizeof(int*));
 
 	//assume input file is already 3 columns needed for data matrix
 	
@@ -150,7 +164,7 @@ void main(int argc, char **argv) {
 	nRows = getRows(nlines, nColumns, sampleID, sampleIDCompact);
 	printf("nRows = %d\n", nRows);
 	
-	createMatrix(matrixAB, nRows, nColumns, ksuIDCompact, sampleIDCompact);
+	createMatrix<<<1,1>>>(matrixAB, nRows, nColumns, ksuIDCompact, sampleIDCompact);
 	//Write matrix to file
 	//fd = fopen("./SNPmatrix.txt", "w");
 
@@ -197,5 +211,11 @@ void main(int argc, char **argv) {
 		fprintf(fd, "%d\n", genotypeAB[i + ((nColumns - 1)*nRows)]); 
 		
 	}
-	
+	free(ksuID);
+	free(sampleID);
+	free(genotypeAB);
+	free(sampleIDCompact);
+	free(ksuIDCompact);
+	free(matrixAB);
+
 }
