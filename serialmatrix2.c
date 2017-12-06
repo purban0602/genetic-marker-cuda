@@ -8,21 +8,28 @@
 
 double myclock();
 
-__global__ 
-void createMatrix(int** matrix, int rows, int columns, int *ksuCompact, int *sampleCompact) {
+ 
+void createMatrix(int** matrix, int rows, int columns, int *ksuCompact, int *sampleCompact, int *AB) {
+	
+	printf("Creating matrix...\n");
 	int i, j;
-	//fprintf(fd, "0\t");
-	
-	//matrix = (int**) malloc((rows+1) * sizeof(int*));
-	cudaMallocManaged(&matrix, (rows + 1) * sizeof(int*));
-	
-	
-	for(i = 0; i < rows; i++) 
-		//matrix[i] = (int*) malloc((columns+1) * sizeof(int));
-		cudaMallocManaged(&matrix[i], (columns+1) * sizeof(int*));
-	
 	matrix[0][0] = 0;
 	printf("matrix[0][0] = %d\n", matrix[0][0]);
+	for(i = 1; i < columns + 1;i++) {
+		matrix[0][i] = ksuCompact[i - 1];
+	}
+	
+	for(i = 1; i < rows + 1; i++) {
+		matrix[i][0] = sampleCompact[i - 1];
+		printf("sampleCompact[%d] = %d, matrix[%d][0] = %d\n", i-1, sampleCompact[i-1], i, matrix[i][0]);	
+	}
+
+	for(j = 1; j < columns + 1; j++){
+		for(i = 1;i < rows + 1;i++) {
+			matrix[i][j] = AB[(i - 1) + (j - 1)*(rows)];
+			printf("matrix[%d][%d] = %d, AB[%d] = %d\n", i, j, matrix[i][j], ((i - 1) + (j - 1)*rows), AB[(i - 1) + (j - 1)*rows]);
+		} 
+	}
 }
 
 int getColumns(int *ksu, int lines, int *ksuCompact) {
@@ -54,6 +61,7 @@ int getColumns(int *ksu, int lines, int *ksuCompact) {
 
 int getRows(int lines, int columns, int *sample, int *sampleCompact) {
 
+
 	int i, j;
 	int exists;
 	int compactIndex = 1;
@@ -83,19 +91,21 @@ int getRows(int lines, int columns, int *sample, int *sampleCompact) {
 
 int main(int argc, char **argv) {
 	
-	int numAnimals, numSNPs = 0;
-	int i, j, k, err;
+//	double tstart;
+//	double ttotal;
+//	struct rusage r_usage;	
+
+	int i, j, err;
 
 	FILE *fd;
 	
 	int maxlines = atoi(argv[1]);
 	int nlines;
-
+	
 	//nColumns and nRows refers to the number of columns and rows of DATA not total in matrix.
 	int nColumns;
 	int nRows;
-	int matrixN;
-
+	
 	int** matrixAB;
 
 	int *ksuID;
@@ -105,28 +115,29 @@ int main(int argc, char **argv) {
 	int *ksuIDCompact;
 	int *sampleIDCompact;
 
-	char **line;
-	char tempLine[50];
+//	tstart = myclock();
+//	tstart = myclock();
 
-	struct rusage r_usage;
 	printf("Allocating memory...\n");
 	fflush(stdout);
-	//allocate memory for each line
-	/*	
-	ksuID = (int*) malloc(maxlines * sizeof(int*));
-	sampleID = (int*) malloc(maxlines * sizeof(int*));
-	genotypeAB = (int*) malloc(maxlines * sizeof(int*));
 	
-	ksuIDCompact = (int*) malloc(maxlines * sizeof(int*));
-	sampleIDCompact = (int*) malloc(maxlines * sizeof(int*));
+	//allocate memory for each line
+		
+	ksuID = (int*) malloc(maxlines * sizeof(int));
+	sampleID = (int*) malloc(maxlines * sizeof(int));
+	genotypeAB = (int*) malloc(maxlines * sizeof(int));
+	
+	ksuIDCompact = (int*) malloc(maxlines * sizeof(int));
+	sampleIDCompact = (int*) malloc(maxlines * sizeof(int));
+	
+	/*
+	cudaMallocManaged(&ksuID, maxlines * sizeof(int));
+	cudaMallocManaged(&sampleID, maxlines * sizeof(int));
+	cudaMallocManaged(&genotypeAB, maxlines * sizeof(int));
+
+	cudaMallocManaged(&ksuIDCompact, maxlines * sizeof(int));
+	cudaMallocManaged(&sampleIDCompact, maxlines * sizeof(int));
 	*/
-
-	cudaMallocManaged(&ksuID, maxlines * sizeof(int*));
-	cudaMallocManaged(&sampleID, maxlines * sizeof(int*));
-	cudaMallocManaged(&genotypeAB, maxlines * sizeof(int*));
-
-	cudaMallocManaged(&ksuIDCompact, maxlines * sizeof(int*));
-	cudaMallocManaged(&sampleIDCompact, maxlines * sizeof(int*));
 
 	//assume input file is already 3 columns needed for data matrix
 	
@@ -156,7 +167,7 @@ int main(int argc, char **argv) {
 	 *	948	3	1	1	...
 	 *	...	...	...	...
 	 */	
-
+	
 	//get number of columns
 	nColumns = getColumns(ksuID, nlines, ksuIDCompact);
 	printf("nColumns = %d\n", nColumns);
@@ -164,53 +175,36 @@ int main(int argc, char **argv) {
 	nRows = getRows(nlines, nColumns, sampleID, sampleIDCompact);
 	printf("nRows = %d\n", nRows);
 	
-	createMatrix<<<1,1>>>(matrixAB, nRows, nColumns, ksuIDCompact, sampleIDCompact);
+	matrixAB = (int**) malloc((nRows+1) * sizeof(int*));
+	//cudaMallocManaged(&matrixAB, (nRows+1) * sizeof(int*));
+	
+	for(i = 0; i < nRows+1; i++) 
+		matrixAB[i] = (int*) malloc((nColumns+1) * sizeof(int));
+		//cudaMallocManaged(&matrixAB[i], (nColumns+1) * sizeof(int));
+	
+
+	createMatrix(matrixAB, nRows, nColumns, ksuIDCompact, sampleIDCompact, genotypeAB);
+	printf("Matrix created.\n");
+
 	//Write matrix to file
-	//fd = fopen("./SNPmatrix.txt", "w");
+	fd = fopen("./SNPmatrix.txt", "w");
 
 	//create first row
-	/*
-	fprintf(fd, "0\t");
-	fprintf(fd, "%d\t",ksuID[0]);
-	nColumns = 1;
-	
-	for (i = 1; i < nlines-1; i++) {
-		if (ksuID[i] != ksuID[i-1]) {
-			fprintf(fd, "%d\t",ksuID[i]);
-			nColumns++;
+	for(i = 0; i < nRows + 1; i++) {
+		for(j = 0; j < nColumns; j++) {
+			fprintf(fd, "%d\t", matrixAB[i][j]);
 		}
-	}
-
-	//avoids an extra \t at the end of the row
-	if (ksuID[nlines-1] != ksuID[nlines-2]) {
-	       fprintf(fd, "%d",ksuID[i]);  
-	       nColumns++;
-	}
-
-	fprintf(fd, "\n");	
-	printf("nColumns = %d\n", nColumns);
+		fprintf(fd, "%d\n", matrixAB[i][nColumns]);
+	}	
 	
-	if(nlines%nColumns) nRows = (nlines / nColumns) + 1;
-	else nRows = nlines/nColumns;
-	*/
-
-	//printf("nRows = %d\n", nRows);
-	printf("nlines = %d\n", nlines);
-
-	//create all other rows
-	matrixN = 0;
-	for (i = 0; i < nRows; i++) {
-		//write first column (sampleID)
-		fprintf(fd, "%d\t", sampleID[i]);
-
-		//write all other columns
-		for (j = 0; j < nColumns-1; j++) {
-			fprintf(fd, "%d\t", genotypeAB[i + (j*nRows)]);
-			matrixN++;
-		}
-		fprintf(fd, "%d\n", genotypeAB[i + ((nColumns - 1)*nRows)]); 
+	fclose(fd);
+	printf("Closed SNPmatrix.txt.\n");
+//	ttotal = myclock() - tstart;
+	//getrusage(RUSAGE_SELF, &r_usage);
+	
+//	printf("SNPmatrix.txt created.\nExec. Time = %f, RAM Usage = %ld", ttotal, r_usage.ru_maxrss);
 		
-	}
+
 	free(ksuID);
 	free(sampleID);
 	free(genotypeAB);
@@ -219,4 +213,14 @@ int main(int argc, char **argv) {
 	free(matrixAB);
 	
 	return 1;
+}
+
+double myclock() {
+	static time_t t_start = 0;
+
+	struct timespec ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	if( t_start == 0 ) t_start = ts.tv_sec;
+
+	return (double) (ts.tv_sec - t_start) + ts.tv_nsec * 1.0e-9;
 }
