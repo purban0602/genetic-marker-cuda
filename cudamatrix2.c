@@ -8,95 +8,62 @@
 
 double myclock();
 
-void createMatrix(int* matrix, int rows, int columns, int *ksu) {
+void createMatrix(int** matrix, int rows, int columns, int *ksuCompact, int *sampleCompact) {
 	int i, j;
 	//fprintf(fd, "0\t");
-	matrix[0] = 0;
-
-/*
-	//fprintf(fd, "%d\t",ksuID[0]);
-
-	for (i = 1; i < columns; i++) {
-		matrix[i] = ksu[i];
-	}
-
-	//avoids an extra \t at the end of the row
-	if (ksu[lines-1] != ksu[lines-2]) {
-	       fprintf(fd, "%d",ksu[i]);  
-	       columns++;
-	}
-
-	fprintf(fd, "\n");	
-	printf("nColumns = %d\n", columns);
 	
+	matrix = (int**) malloc((rows+1) * sizeof(int*));
+	for(i = 0; i < rows; i++) matrix[i] = (int*) malloc((columns+1) * sizeof(int));
 	
-	if(nlines%nColumns) nRows = (nlines / nColumns) + 1;
-	else nRows = nlines/nColumns;
-	
-
-	printf("nRows = %d\n", nRows);
-	printf("nlines = %d\n", nlines);
-
-	//create all other rows
-	matrixN = 0;
-	for (i = 0; i < nRows; i++) {
-		//write first column (sampleID)
-		fprintf(fd, "%d\t", sampleID[i]);
-
-		//write all other columns
-		for (j = 0; j < nColumns-1; j++) {
-			fprintf(fd, "%d\t", genotypeAB[i + (j*nRows)]);
-			matrixN++;
-		}
-		fprintf(fd, "%d\n", genotypeAB[i + ((nColumns - 1)*nRows)]); 
-		
-	}
-*/
-
+	matrix[0][0] = 0;
+	printf("matrix[0][0] = %d\n", matrix[0][0]);
 }
 
 int getColumns(int *ksu, int lines, int *ksuCompact) {
+
+	int i, j;
+	int exists;
+	int compactIndex = 1;
 	
-	int i;
-	int columns = 1;
-	
-	for (i = 1; i < lines-1; i++) {
-		if (ksu[i] != ksu[i-1]) {
-			//fprintf(fd, "%d\t",ksuID[i]);
-			columns++;
+	//create compact array (unique ksuID's)
+	//place first element
+	ksuCompact[0] = ksu[0];
+//	printf("ksuCompact[0] = %d\n", ksu[0]);
+	for(i = 1; i < lines; i++) {
+		exists = 0;
+		for(j = 0; j < i; j++) {
+//			printf("ksuCompact[j] = %d, ksu[i] = %d\n", ksu[j], ksu[i]);
+			if(ksu[i] == ksuCompact[j]) {
+				exists = 1;
+			}
+		}
+		if (!exists) {
+			ksuCompact[compactIndex] = ksu[i];
+			compactIndex++;
 		}
 	}
 
-	//avoids an extra \t at the end of the row
-	if (ksu[lines-1] != ksu[lines-2]) {
-	       //fprintf(fd, "%d",ksuID[i]);  
-	       columns++;
-	}
-
-	//fprintf(fd, "\n");	
-	
-	//create compact array (unique KSUID's)
-	return columns;
+	return compactIndex;
 }
 
 int getRows(int lines, int columns, int *sample, int *sampleCompact) {
 
 	int i, j;
-	//int rows = 1;
 	int exists;
-	int compactIndex = 0;
-	//if(lines%columns) rows = (lines / columns) + 1;
-	//else rows = lines/columns;
+	int compactIndex = 1;
 
 	//create compact array (unique sampleID's)
-	for(i = 0; i < lines; i++) {
+	//place first element
+	sampleCompact[0] = sample[0];
+//	printf("sampleCompact[0] = %d\n", sample[0]);
+	for(i = 1; i < lines; i++) {
 		exists = 0;
-		for(j = 0; j < lines; j++) {
-			printf("Checking i = %d and j = %d\n", i, j);
-			if (sample[i] == sample[j] && i != j) {
+		for(j = 0; j < i; j++) {
+//			printf("sampleCompact[j] = %d, sample[i] = %d\n", sampleCompact[j], sample[i]);
+			//if sample[i] currently exists in sampleCompact
+			if(sample[i] == sampleCompact[j]) {
 				exists = 1;
 			}
-			printf("exists = %d\n\n", exists);
 		}
 		if (!exists) {
 			sampleCompact[compactIndex] = sample[i];
@@ -123,7 +90,7 @@ void main(int argc, char **argv) {
 	int nRows;
 	int matrixN;
 
-	int* matrixAB;
+	int** matrixAB;
 
 	int *ksuID;
 	int *sampleID;
@@ -143,6 +110,9 @@ void main(int argc, char **argv) {
 	ksuID = (int*) malloc(maxlines * sizeof(int*));
 	sampleID = (int*) malloc(maxlines * sizeof(int*));
 	genotypeAB = (int*) malloc(maxlines * sizeof(int*));
+	
+	ksuIDCompact = (int*) malloc(maxlines * sizeof(int*));
+	sampleIDCompact = (int*) malloc(maxlines * sizeof(int*));
 
 	//assume input file is already 3 columns needed for data matrix
 	
@@ -179,9 +149,10 @@ void main(int argc, char **argv) {
 	//get number of rows
 	nRows = getRows(nlines, nColumns, sampleID, sampleIDCompact);
 	printf("nRows = %d\n", nRows);
-
+	
+	createMatrix(matrixAB, nRows, nColumns, ksuIDCompact, sampleIDCompact);
 	//Write matrix to file
-	fd = fopen("./SNPmatrix.txt", "w");
+	//fd = fopen("./SNPmatrix.txt", "w");
 
 	//create first row
 	/*
