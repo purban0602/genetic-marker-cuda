@@ -5,13 +5,23 @@
 #include <time.h>
 #include <sys/resource.h>
 
+#define CHECK(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}																			
+
 
 typedef struct{
-	char** name;
+	char* name;
 	char* chrom_c;
 	//int* chrom;
 	long* pos;
-	//long* c_pos;
+	long* c_pos;
 	//char** rest;
 }SNP;
 
@@ -41,7 +51,7 @@ void read_files(char* map_path, char* snp_path, char** data_string, char** snps_
 	}
 /*****************************************************************/
 	
-	fd = fopen(snp_path, "r");
+	fd = fopen("/homes/d/dwg1092/project/FinalReport_Truncated32.txt", "r");
 	
 	
 /*******Getting number of SNP and Sample from header****/
@@ -66,7 +76,7 @@ void read_files(char* map_path, char* snp_path, char** data_string, char** snps_
 	
 	num_lines  = -1;
 	do {
-		err = fscanf(fd, "%[^\n]\n", data_strings[++num_lines]);
+		err = fscanf(fd, "%[^\n]\n", data_string[++num_lines]);
 	} while(err != EOF && num_lines < NSNPS*NSAMPLES);
 	
 	fclose(fd);
@@ -82,12 +92,12 @@ void read_files(char* map_path, char* snp_path, char** data_string, char** snps_
 		snps_data[i] = (char*)malloc(100); 	
 	}
 	
-	fd = fopen(map_path, "r");
+	fd = fopen("/homes/d/dwg1092/project/SNP_Map_Truncated32.txt", "r");
 	
 	int num_lines2 = -1;
 	err = fscanf(fd, "%[^\n]\n", junk);
 	do {
-		err = fscanf(fd, "%[^\n]\n", snp_data[++num_lines2]);
+		err = fscanf(fd, "%[^\n]\n", snps_data[++num_lines2]);
 	} while(err != EOF && num_lines2 < NSNPS);
 	
 	free(junk);
@@ -97,18 +107,29 @@ void read_files(char* map_path, char* snp_path, char** data_string, char** snps_
 	
 
 }
-
-/*************functions for the radix sort**********************************/
-
-__device__ void radixsort(SNP* snps, Sample* samples){
+__device__ long scan(long* x){
 	
-	for(int i = 0; i < 64; i++){
-		sort_by_bit(snps, samples, i);
+	int i = threadIdx.x;
+	int n = blockDim.x;
+	int offset;
+	
+	for ( offset = 1; offset < n; offset *= 2){
+		long temp;
+		if (i >= offset)
+			temp = x[i-offset];
+		
+		__syncthreads();
+		
+		if(i >= offset)
+			x[i] = temp + x[i];
+		
 		__syncthreads();
 	}
 	
+	return x[i];
 }
 
+/*************functions for the radix sort**********************************/
 __device__ void sort_by_bit(SNP* snps, Sample* samples, int bit){
 	
 		int i = threadIdx.x;
@@ -117,7 +138,7 @@ __device__ void sort_by_bit(SNP* snps, Sample* samples, int bit){
 		
 		/***temperary variables for the snps*****/
 		long t_pos = snps->pos[i];
-		char* t_name = snps->name[i];
+		char t_name = snps->name[i * 50];
 		char t_chrom_c = snps->chrom_c[i];
 		//char* t_rest = snps->rest[i];
 		Sample t_sample = samples[i];
@@ -146,61 +167,31 @@ __device__ void sort_by_bit(SNP* snps, Sample* samples, int bit){
 		samples[index] = t_sample;
 }
 
-/**************************************************************************/
-
-__device__ long scan(long* x){
+__device__ void radixsort(SNP* snps, Sample* samples){
 	
-	int i = threadIdx.x;
-	int n = blockDim.x;
-	int offset;
-	
-	for ( offset = 1; offset < n; offset *= 2){
-		long temp;
-		if (i >= offset)
-			temp = x[i-offset];
-		
-		__syncthreads();
-		
-		if(i >= offset)
-			x[i] = temp + x[i];
-		
+	for(int i = 0; i < 64; i++){
+		sort_by_bit(snps, samples, i);
 		__syncthreads();
 	}
 	
-	return x[i];
 }
+/**************************************************************************/
+
 
 
 void parse(SNP* snps, Sample* animals, char** data_string, char** snp_data){
 	
 	int i, j, err;
 	
-	snps->name = (char**) malloc(NSNPS * sizeof(char*));
-	snps->chrom_c = (char*) malloc(NSNPS * sizeof(char));
-	snps->pos = (long*) malloc(NSNPS * sizeof(long));
-	
-	for(i = 0; i < NSNPS; i++)
-		snps->name[i] = (char*) malloc(50 * sizeof(char));
-	
-	animals = (Sample*) malloc(NSNPS * sizeof(Sample));
-	
-	for(i = 0; i < NSNPS; i++){
-		animals[i]->snp_name = (char*) malloc(50 * sizeof(char));
-		animals[i]->a_id = (int*) malloc(NSAMPLES * sizeof(int));
-		animals[i]->ab1 = (char*) malloc(NSAMPLES * sizeof(char));
-		animals[i]->ab2 = (char*) malloc(NSAMPLES * sizeof(char));
-		animals[i]->ab = (int*) malloc(NSAMPLES * sizeof(char));
-	}
-	
 	for (i = 0; i < NSNPS; i++){
 		err = sscanf(snp_data[i], "%*d	%s	%c	%ld	%*s", 
-					  snps->names[i], snps->chrom_c[i], snps->pos[i], snps->rest[i]);
+					  &(snps->name[i * 50]) , &(snps->chrom_c[i]), &(snps->pos[i]));
 	}
 	
 	for(i = 0; i < NSNPS; i++){
 		for(j = 0; j < NSAMPLES; j++)
 			err = sscanf(data_string[i], "%s/t%d/t%*c/t%*c/t%*c/t%*c/t%c/t%c/t%*s", 
-							animals[i]->snp_name, animals[i]->a_id[j], animals[i]->ab1[j], animals[i]->ab2[j]);
+							animals[i].snp_name, &(animals[i].a_id[j]), &(animals[i].ab1[j]), &(animals[i].ab2[j]));
 	}
 }
 
@@ -210,40 +201,81 @@ __global__ void sort(SNP* snps, Sample* samples, int nsamples){
 	radixsort(snps, samples);
 	
 	for(int i = 0; i < nsamples; i++){
-		if (samples[id]->ab1[i] == 'A' && samples[id]->ab2[i] == 'A'){
-			samples[id]->ab[i] = 1;
-		}else if(samples[id]->ab1[i] == 'B' && samples[id]->ab2[i] == 'B'){
-			samples[id]->ab[i] = 2;
+		if (samples[id].ab1[i] == 'A' && samples[id].ab2[i] == 'A'){
+			samples[id].ab[i] = 1;
+		}else if(samples[id].ab1[i] == 'B' && samples[id].ab2[i] == 'B'){
+			samples[id].ab[i] = 2;
 		}else{
-			samples[id]->ab[i] = 3;
+			samples[id].ab[i] = 3;
 		}
 	}
 }
+
+__global__ void test(SNP* snps){
+	
+	int id = threadIdx.x;
+	snps->c_pos[id] = scan(snps->pos);
+	
+}
 int main(int argc, char** argv){
 	
-	SNP h_snps;
-	Sample* h_samples;
-	char* map_path, snp_path;
-	char** data_string, snps_data;
-	char** d_name;
-	char* d_chrom_c;
-	long* d_pos;
+	SNP snps;
+	Sample* samples;
+	char* map_path;
+	char* snp_path;
+	char** data_string; 
+	char** snps_data;
+	int i, j;
 	
-	map_path = argv[1];
-	snp_path = argv[2];
+	
+	//map_path = argv[1];
+	//snp_path = argv[2];
 	
 	read_files(map_path, snp_path, data_string, snps_data);
-	parse(&h_snps, h_samples, data_string, snps_data);
 	
-	free(data_string);
-	free(snps_data);
 	
-	cudaMalloc((void**)&(d_pos), sizeof(long)*NSNPS);
-	cudaMalloc((void**)&(d_chrom_c), sizeof(char)*NSNPS);
-	cudaMalloc((void**)d_name, sizeof(char*)*NSNPS);
+	CHECK(cudaMallocManaged((void **)&(snps.name), NSNPS * 50 * sizeof(char)));
+	CHECK(cudaMallocManaged((void**)&(snps.chrom_c), NSNPS * sizeof(char)));
+	CHECK(cudaMallocManaged((void**)&(snps.pos), NSNPS * sizeof(long)));
+	CHECK(cudaMallocManaged((void **)&(snps.c_pos), NSNPS * sizeof(long)));
 	
-	cudaMemcpy(d_pos, (snps.pos), sizeof(long)*NSNPS, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_chrom_c, (snps.chrom_c), sizeof(char)*NSNPS, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_chrom_c, (snps.chrom_c), sizeof(char)*NSNPS, cudaMemcpyHostToDevice);
+	
+	samples = (Sample*) malloc(NSNPS * sizeof(Sample));
+	
+	for(i = 0; i < NSNPS; i++){
+		samples[i].snp_name = (char*) malloc(50 * sizeof(char));
+		samples[i].a_id = (int*) malloc(NSAMPLES * sizeof(int));
+		samples[i].ab1 = (char*) malloc(NSAMPLES * sizeof(char));
+		samples[i].ab2 = (char*) malloc(NSAMPLES * sizeof(char));
+		samples[i].ab = (int*) malloc(NSAMPLES * sizeof(char));
+	}
+	
+	/*CHECK(cudaMallocManaged((void**) &samples, NSNPS * sizeof(Sample)));
+	
+	for(i = 0; i < NSNPS; i++){
+		CHECK(cudaMallocManaged((void **)&(samples[i].snp_name), 50 * sizeof(char)));
+		CHECK(cudaMallocManaged((void **)&(samples[i].a_id), NSAMPLES * sizeof(int)));
+		CHECK(cudaMallocManaged((void **)&(samples[i].ab1), NSAMPLES * sizeof(char)));
+		CHECK(cudaMallocManaged((void **)&(samples[i].ab2), NSAMPLES * sizeof(char)));
+		CHECK(cudaMallocManaged((void **)&(samples[i].ab), NSAMPLES * sizeof(char)));
+	}*/
+	
+	
+	parse(&snps, samples, data_string, snps_data);
+	
+	for(i = 0; i < NSNPS; i++)
+		for(j = 0; j < NSAMPLES; j++)
+		printf("%s	%d	%c	%c	%c\n", samples[i].snp_name, samples[i].a_id[j], samples[i].ab1[j], samples[i].ab2[j], samples[i].ab[j]);
+	
+	for(i = 0; i < NSNPS; i++)
+		printf("%c	%ld	%ld", snps.chrom_c[i], snps.pos[i], snps.c_pos[i]);
+	
+	
+	/*free(data_string);
+	free(snps_data);*/
+	
+	test<<<1, 32>>>(&snps);
+	cudaDeviceSynchronize();
+	
 	
 }
